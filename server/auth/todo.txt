@@ -1,0 +1,5 @@
+user shema -- DONE
+hash pass with bcrypt -- DONE
+export api routers for student/teacher signup -- DONE
+create a authentification func to check if user is signed up
+export login api router (POST)
