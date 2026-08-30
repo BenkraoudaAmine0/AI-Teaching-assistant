@@ -1,0 +1,1 @@
+PDF -> chunking -> mongodb(full text storage) -> pinecone (embeddings + metadata)
