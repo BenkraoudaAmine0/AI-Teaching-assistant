@@ -1,3 +1,31 @@
-
+# Environment variables
 .env
+.env.*
 
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# Uploaded files
+server/docs/upload_docs/
+
+# OS
+.DS_Store
+Thumbs.db
