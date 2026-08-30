@@ -13,3 +13,7 @@ db = client[DB_NAME]
 
 # User collection
 users_collection = db["users"]
+# Chunk collection
+chunk_collection = db["text"]
+# chat history collection
+chat_history_collection = db["chat_history"]
