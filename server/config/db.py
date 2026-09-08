@@ -17,3 +17,7 @@ users_collection = db["users"]
 chunk_collection = db["text"]
 # chat history collection
 chat_history_collection = db["chat_history"]
+
+# quiz collection
+quizzes_collection = db["quizzes"]
+quiz_history = db["quiz_history"]

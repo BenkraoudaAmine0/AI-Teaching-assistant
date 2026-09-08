@@ -19,21 +19,19 @@ def authenticate(credentials:HTTPBasicCredentials=Depends(security)):
     """authenticate user using a HTTPBasicCredentials"""
 
     # Search by either email or username since credentials.username could be either
-    user_record = users_collection.find_one({
+    user = users_collection.find_one({
         "$or": [
             {"email": credentials.username},
             {"username": credentials.username}
         ]
     })
-    if not user_record or not verify_password(credentials.password, user_record["password"]):
+    if not user or not verify_password(credentials.password, user.get("password")):
         raise HTTPException(status_code=401, detail="Invalid username or password")
     return {
-        "username": user_record["username"],
-        "email": user_record["email"],
-        "fullname": user_record["fullname"],
-        "grade": user_record["grade"] if "grade" in user_record else None,
-        "school": user_record["school"] if "school" in user_record else None,
-        "role": user_record.get("role"),
+        "username": user.get("username"),
+        "role": user.get("role"),
+        "grade": user.get("grade"),
+        "user_id": str(user.get("_id"))
     }
 
 

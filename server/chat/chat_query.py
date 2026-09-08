@@ -32,7 +32,7 @@ embed_model = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
 # define llm model
 llm = ChatGroq(
     temperature=0.3,
-    model_name="llama-3.3-70b-versatile",
+    model_name="openai/gpt-oss-120b",
     groq_api_key=GROQ_API_KEY
 )
 
@@ -53,36 +53,73 @@ query_promot = PromptTemplate.from_template(
     """
 )
 
+quiz_prompt = PromptTemplate.from_template(
+    """
+    You are a test-generation assistant.
+    
+    Using the context below, generate {num_questions}
+    multiple-choice questions.
+
+    Format STRICTLY as:
+    Question 1: ...
+    a) ...
+    b) ...
+    c) ...
+    Correct Answer: a
+
+    Context: 
+    {context}
+    
+    """
+)
+
+
+
 # Design the RAG chain
 rag_chain = (query_promot | llm)
+quiz_chain = (quiz_prompt | llm)
 
 async def answer_query(query:str,user_role:str,user_grade:int)->dict:
     # embedding generation
     embedding = await asyncio.to_thread(embed_model.embed_query,query)
+    # Build the filter dynamically to handle missing roles/grades
+    role_list = ["Public"]
+    if user_role is not None:
+        role_list.append(user_role)
+        
+    query_filter = {
+        "role": {"$in": role_list}
+    }
+    if user_grade is not None:
+        query_filter["grade"] = user_grade
+
+    print("DEBUG: query_filter =", query_filter)
+    
     # retrieve relevent enbedding from vectordb
     results = await asyncio.to_thread(
         index.query,
         vector=embedding,
         top_k=5,
         include_metadata=True,
-        filter={
-            "role":user_role,
-            "grade":{"$in":["public",user_role]}
-        }
+        filter=query_filter
     )
+    
+    matches = results.get('matches', [])
+    print(f"DEBUG: Pinecone returned {len(matches)} matches")
+
     # validation check
-    if not results.get('matches'):
-        return {"answer":"No relevant documents found"}
+    if not matches:
+        return {"answer":"No relevant documents found", "sources": []}
 
     # get chunk id and source from metadata
     # get chunk id
-    chunk_ids = [match['id'] for match in results['matches']]
+    chunk_ids = [match['id'] for match in matches]
 
     # get doc/text
     docs=list(chunk_collection.find({"chunk_id": {"$in": chunk_ids}}))
     # Validate check
     if not docs:
-        return {"answer":"No relevant documents found"}
+        return {"answer":"No relevant documents found", "sources": []}
         # preserve context order
         #1
     doc_map={ d["chunk_id"]: d for d in docs}
@@ -108,3 +145,70 @@ async def answer_query(query:str,user_role:str,user_grade:int)->dict:
         "sources":sources
     }
 
+
+
+async def quiz_generation(topic:str,user_role:str,user_grade:int,num_questions:int=3)->dict:
+    # embedding generation
+    embedding = await asyncio.to_thread(embed_model.embed_query,topic)
+    # Build the filter dynamically to handle missing roles/grades
+    role_list = ["Public"]
+    if user_role is not None:
+        role_list.append(user_role)
+        
+    query_filter = {
+        "role": {"$in": role_list}
+    }
+    if user_grade is not None:
+        query_filter["grade"] = user_grade
+
+    print("DEBUG: query_filter =", query_filter)
+    
+    # retrieve relevent enbedding from vectordb
+    results = await asyncio.to_thread(
+        index.query,
+        vector=embedding,
+        top_k=5,
+        include_metadata=True,
+        filter=query_filter
+    )
+    
+    matches = results.get('matches', [])
+    print(f"DEBUG: Pinecone returned {len(matches)} matches")
+
+    # validation check
+    if not matches:
+        return {"quiz":"No relevant information found for generating quiz", "sources": []}
+
+    # get chunk id and source from metadata
+    # get chunk id
+    chunk_ids = [match['id'] for match in matches]
+
+    # get doc/text
+    docs=list(chunk_collection.find({"chunk_id": {"$in": chunk_ids}}))
+    # Validate check
+    if not docs:
+        return {"quiz":"context unavailable for generating quiz", "sources": []}
+        # preserve context order
+        #1
+    doc_map={ d["chunk_id"]: d for d in docs}
+    ordered_map = [ doc_map[cid] for cid in chunk_ids if cid in doc_map]
+        #2
+    context = "\n\n".join(d["text"] for d in ordered_map)
+    sources=list({d["source"] for d in ordered_map})
+    # gather response
+    response = await asyncio.to_thread(
+        quiz_chain.invoke,
+        {"num_questions": num_questions, "context": context}
+    )
+    
+    # get proper answer
+    quiz_text = (
+        response.content
+        if hasattr(response,"content")
+        else str(response)
+    )
+
+    return {
+        "quiz":quiz_text,
+        "sources":sources
+    }

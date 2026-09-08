@@ -1,11 +1,13 @@
 from fastapi import FastAPI
 from auth.route import router as auth_router
 from docs.route import router as docs_router
+from chat.route import router as chat_router
 
 app = FastAPI()
 
 app.include_router(auth_router)
 app.include_router(docs_router)
+app.include_router(chat_router)
 
 
 @app.get("/")
