@@ -167,3 +167,5 @@ async def get_quiz_history(user=Depends(authenticate)):
         "message":f"Found {len(history)} quiz attempts",
         "history": history
         }
+
+
